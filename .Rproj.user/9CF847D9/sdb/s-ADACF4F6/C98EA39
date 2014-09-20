@@ -1,0 +1,17 @@
+{
+    "contents" : "```{r include=FALSE}\nknitr::opts_chunk$set(\n  comment = NA\n)\nknitr::opts_knit$set(\n  width = 100\n)\n```\n\n\n## Summary of data\n\nPrep data\n\n```{r dataprep}\ndat <- read.csv(\"dittes_data.csv\")\ndat$date <- as.Date(paste(as.character(dat$year), \"-01-01\", sep = \"\"), \"%Y-%m-%d\")\ndat <- dat[ !dat$habitat == 2, ] # drop habitat=32\n```\n\nMake a `dplyr` `tbl_df` object\n\n```{r}\nlibrary('dplyr')\ndat_df <- tbl_df(dat)\n```\n\nDefine function to get quick summary by factor variable\n\n```{r}\navg_by <- function(...){\n  dat_df %>% \n    group_by(...) %>%\n    summarise(rdm_mean = mean(rdm, na.rm = TRUE),\n              rdm_sd = sd(rdm, na.rm = TRUE),\n              rdm_n = length(na.omit(rdm)))\n}\n```\n\nby transect\n\n```{r}\navg_by(transect)\n```\n\nby year\n\n```{r}\navg_by(year)\n```\n\nby soil type\n\n```{r}\navg_by(soil)\n```\n\nby slope_class\n\n```{r}\navg_by(slope_class)\n```\n\nby landform\n\n```{r}\navg_by(landform)\n```\n\nby landform\n\n```{r}\navg_by(landform)\n```\n\nby habitat\n\n```{r}\navg_by(habitat)\n```\n\nAll combinators of factors\n\n```{r}\navg_by(transect, year, soil, slope_class, landform, habitat) %>% data.frame\n```\n",
+    "created" : 1411175564607.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "894344520",
+    "id" : "C98EA39",
+    "lastKnownWriteTime" : 1411176198,
+    "path" : "~/Mac/consulting/dittes/data_summary.Rmd",
+    "project_path" : "data_summary.Rmd",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "source_on_save" : false,
+    "type" : "r_markdown"
+}

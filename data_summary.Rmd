@@ -1,0 +1,86 @@
+```{r include=FALSE}
+knitr::opts_chunk$set(
+  comment = NA
+)
+knitr::opts_knit$set(
+  width = 100
+)
+```
+
+
+## Summary of data
+
+Prep data
+
+```{r dataprep}
+dat <- read.csv("dittes_data.csv")
+dat$date <- as.Date(paste(as.character(dat$year), "-01-01", sep = ""), "%Y-%m-%d")
+dat <- dat[ !dat$habitat == 2, ] # drop habitat=32
+```
+
+Make a `dplyr` `tbl_df` object
+
+```{r}
+library('dplyr')
+dat_df <- tbl_df(dat)
+```
+
+Define function to get quick summary by factor variable
+
+```{r}
+avg_by <- function(...){
+  dat_df %>% 
+    group_by(...) %>%
+    summarise(rdm_mean = mean(rdm, na.rm = TRUE),
+              rdm_sd = sd(rdm, na.rm = TRUE),
+              rdm_n = length(na.omit(rdm)))
+}
+```
+
+by transect
+
+```{r}
+avg_by(transect)
+```
+
+by year
+
+```{r}
+avg_by(year)
+```
+
+by soil type
+
+```{r}
+avg_by(soil)
+```
+
+by slope_class
+
+```{r}
+avg_by(slope_class)
+```
+
+by landform
+
+```{r}
+avg_by(landform)
+```
+
+by landform
+
+```{r}
+avg_by(landform)
+```
+
+by habitat
+
+```{r}
+avg_by(habitat)
+```
+
+All combinators of factors
+
+```{r}
+avg_by(transect, year, soil, slope_class, landform, habitat) %>% data.frame
+```
