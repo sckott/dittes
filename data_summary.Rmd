@@ -1,86 +1,164 @@
-```{r include=FALSE}
+```{r echo=FALSE}
 knitr::opts_chunk$set(
-  comment = NA
-)
-knitr::opts_knit$set(
-  width = 100
+  comment = "#>",
+  collapse = TRUE,
+  width = 100,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6
 )
 ```
 
+## Load packages
+
+```{r}
+library('car')
+library('lsmeans')
+library('plyr')
+library('dplyr')
+library('ggplot2')
+library('knitr')
+library('scales')
+```
+
+## Define some helper functions
+
+```{r}
+get_means <- function(x){
+  list(means = as.data.frame(summary(x[[1]])), 
+       diffs = as.data.frame(summary(x[[2]]))
+  )
+}
+
+gg <- function(){
+  list(
+    geom_point(size = 4),
+    geom_errorbar(limits, size = 1, width=0.2),
+    theme_grey(base_size = 18)
+  )
+}
+
+limits <- aes(ymax = lsmean + SE, ymin = lsmean - SE)
+
+# Define function to get quick summary by factor variable
+avg_by <- function(...){
+  dat_df %>% 
+    group_by(...) %>%
+    summarise(rdm_mean = mean(rdm, na.rm = TRUE),
+              rdm_sd = sd(rdm, na.rm = TRUE),
+              rdm_n = length(na.omit(rdm))) %>%
+    kable(format = "markdown")
+}
+```
 
 ## Summary of data
 
 Prep data
 
 ```{r dataprep}
-dat <- read.csv("dittes_data.csv")
+dat <- read.csv("dittes_data2.csv", stringsAsFactors = FALSE)
 dat$date <- as.Date(paste(as.character(dat$year), "-01-01", sep = ""), "%Y-%m-%d")
 dat <- dat[ !dat$habitat == 2, ] # drop habitat=32
+dat$rdm <- dat$rdm*100 # multiply rdm by 100
+dat$landform <- tolower(dat$landform)
 ```
 
 Make a `dplyr` `tbl_df` object
 
 ```{r}
-library('dplyr')
 dat_df <- tbl_df(dat)
-```
-
-Define function to get quick summary by factor variable
-
-```{r}
-avg_by <- function(...){
-  dat_df %>% 
-    group_by(...) %>%
-    summarise(rdm_mean = mean(rdm, na.rm = TRUE),
-              rdm_sd = sd(rdm, na.rm = TRUE),
-              rdm_n = length(na.omit(rdm)))
-}
 ```
 
 by transect
 
-```{r}
+```{r results='asis'}
 avg_by(transect)
 ```
 
 by year
 
-```{r}
+```{r results='asis'}
 avg_by(year)
 ```
 
 by soil type
 
-```{r}
+```{r results='asis'}
 avg_by(soil)
 ```
 
 by slope_class
 
-```{r}
+```{r results='asis'}
 avg_by(slope_class)
 ```
 
 by landform
 
-```{r}
-avg_by(landform)
-```
-
-by landform
-
-```{r}
+```{r results='asis'}
 avg_by(landform)
 ```
 
 by habitat
 
-```{r}
+```{r results='asis'}
 avg_by(habitat)
 ```
 
-All combinators of factors
+All combinations of variables
 
-```{r}
+```{r eval=FALSE}
 avg_by(transect, year, soil, slope_class, landform, habitat) %>% data.frame
 ```
+
+
+## Data analysis
+
+All analyses are done with `rdm` (residual dry matter in lbs/sq acre) as the response variable. Plots use least square means for the y-variables since these take into account the statistical model that was used, wehreas raw data, although more meaningful, may be misleading. Confidence intervals on plots are 95% CI's.
+
+### Prepare data a bit
+
+```{r}
+dat <- dat_df %>% filter(!is.na(rdm), !rdm < 2) %>% mutate(soil = as.factor(soil)) 
+```
+
+### Does RDM differ between soil types?
+
+```{r anova_soils, results='asis'}
+mod <- dat %>% lm(log10(rdm + 1) ~ soil, data=.) 
+# mod %>% plot
+mns <- mod %>% lsmeans(list(pairwise ~ soil), adjust = c("tukey")) %>% get_means
+mod %>% Anova(type = "3") %>% kable(format = "markdown")
+```
+
+Plot by soil type
+
+```{r}
+mns$means %>% ggplot(aes(soil, lsmean)) + gg()
+```
+
+### Does RDM differ among years within each transect? 
+
+```{r anova_transect, results='asis'}
+mods <- dat %>% mutate(year = as.factor(year)) %>% group_by(transect) %>% do(model = lm(log10(rdm + 1) ~ year, data=.))
+# mods$model[[1]] %>% plot
+mns_s <- lapply(mods$model, function(x) x %>% lsmeans(list(pairwise ~ year), adjust = c("tukey")) %>% get_means)
+for(i in seq_along(mods$model)){
+  cat("\n")
+  cat(sprintf("__%s__\n", mods$transect[i]))
+  mods$model[[i]] %>% Anova(type = "3") %>% kable(format = "markdown")
+}
+```
+
+Plot for each transect, among years
+
+```{r}
+rbind_all(Map(function(x,y) data.frame(transect=y, x), lapply(mns_s, "[[", "means"), unique(dat_df$transect))) %>%
+  mutate(date = as.Date(paste0(year,"-01-01"), "%Y-%m-%d")) %>%
+  ggplot(aes(date, lsmean)) + gg() + facet_wrap(~ transect) + scale_x_date(labels = date_format("%Y"))
+```
+
+### Power analysis (to figure out appropriate sample size)
+
+> NOT DONE YET...

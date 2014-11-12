@@ -34,9 +34,9 @@
 
 # Notes on 2014-11-09
 
-* desc stats for each transect
 * RDM data is in grams (g), convert to lbs/sq acre by multiply numbers in RMD column by 100
 * Woodland/Grassland column: 1's: grassland, 3's woodland
+* desc stats for each transect
 * anova - 
   * differences btw soil types
   * within each transect between years
