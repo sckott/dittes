@@ -39,8 +39,15 @@ avg_by <- function(...){
     group_by(...) %>%
     summarise(rdm_mean = mean(rdm, na.rm = TRUE),
               rdm_sd = sd(rdm, na.rm = TRUE),
-              rdm_n = length(na.omit(rdm))) %>%
-    kable(format = "markdown")
+              rdm_n = length(na.omit(rdm)))
+}
+
+# Define function to get quick summary by factor variable, write to csv file
+write_csv <- function(.dat, var){
+  write.csv(.dat, file = sprintf("csvs/avg_by_%s.csv", var), row.names=FALSE)
+}
+write_mod_csv <- function(.dat, var){
+  write.csv(.dat, file = sprintf("csvs/%s.csv", var), row.names=FALSE)
 }
 ```
 
@@ -68,7 +75,7 @@ by transect
 
 
 ```r
-avg_by(transect)
+avg_by(transect) %>% kable(format = "markdown")
 ```
 
 
@@ -88,11 +95,15 @@ avg_by(transect)
 |PL3      |    725.5|  686.4|    85|
 |PL4      |    751.8|  503.1|    85|
 
+```r
+avg_by(transect) %>% write_csv("transect")
+```
+
 by year
 
 
 ```r
-avg_by(year)
+avg_by(year) %>% kable(format = "markdown")
 ```
 
 
@@ -114,7 +125,7 @@ by soil type
 
 
 ```r
-avg_by(soil)
+avg_by(soil) %>% kable(format = "markdown")
 ```
 
 
@@ -135,7 +146,7 @@ by slope_class
 
 
 ```r
-avg_by(slope_class)
+avg_by(slope_class) %>% kable(format = "markdown")
 ```
 
 
@@ -151,7 +162,7 @@ by landform
 
 
 ```r
-avg_by(landform)
+avg_by(landform) %>% kable(format = "markdown")
 ```
 
 
@@ -165,7 +176,7 @@ by habitat
 
 
 ```r
-avg_by(habitat)
+avg_by(habitat) %>% kable(format = "markdown")
 ```
 
 
@@ -175,12 +186,22 @@ avg_by(habitat)
 |grassland |     1156|   1123|   700|
 |woodland  |     1508|   1505|   279|
 
-All combinations of variables
+by transect for each year
+
+> note: full table not show, as 120 rows, see csv file in csvs/transect_year.csv
 
 
 ```r
-avg_by(transect, year, soil, slope_class, landform, habitat) %>% data.frame
+avg_by(habitat)
+#> Source: local data frame [2 x 4]
+#> 
+#>     habitat rdm_mean rdm_sd rdm_n
+#> 1 grassland     1156   1123   700
+#> 2  woodland     1508   1505   279
 ```
+
+CSV files are written out for each variable, and one for all combinations (code not shown)
+
 
 
 ## Data analysis
@@ -201,6 +222,7 @@ dat <- dat_df %>% filter(!is.na(rdm), !rdm < 2) %>% mutate(soil = as.factor(soil
 mod <- dat %>% lm(log10(rdm + 1) ~ soil, data=.) 
 # mod %>% plot
 mns <- mod %>% lsmeans(list(pairwise ~ soil), adjust = c("tukey")) %>% get_means
+write_mod_csv(mns$diffs, "tukey_soil")
 mod %>% Anova(type = "3") %>% kable(format = "markdown")
 ```
 
@@ -219,7 +241,7 @@ Plot by soil type
 mns$means %>% ggplot(aes(soil, lsmean)) + gg()
 ```
 
-![plot of chunk unnamed-chunk-13](figure/unnamed-chunk-13.png) 
+![plot of chunk unnamed-chunk-14](figure/unnamed-chunk-14.png) 
 
 ### Does RDM differ among years within each transect? 
 
@@ -228,6 +250,7 @@ mns$means %>% ggplot(aes(soil, lsmean)) + gg()
 mods <- dat %>% mutate(year = as.factor(year)) %>% group_by(transect) %>% do(model = lm(log10(rdm + 1) ~ year, data=.))
 # mods$model[[1]] %>% plot
 mns_s <- lapply(mods$model, function(x) x %>% lsmeans(list(pairwise ~ year), adjust = c("tukey")) %>% get_means)
+for(i in seq_along(mods$model)) write_mod_csv(mns_s[[i]]$diffs, sprintf("tukey_%s", mods$transect[[i]]))
 for(i in seq_along(mods$model)){
   cat("\n")
   cat(sprintf("__%s__\n", mods$transect[i]))
@@ -353,7 +376,7 @@ rbind_all(Map(function(x,y) data.frame(transect=y, x), lapply(mns_s, "[[", "mean
   ggplot(aes(date, lsmean)) + gg() + facet_wrap(~ transect) + scale_x_date(labels = date_format("%Y"))
 ```
 
-![plot of chunk unnamed-chunk-14](figure/unnamed-chunk-14.png) 
+![plot of chunk unnamed-chunk-15](figure/unnamed-chunk-15.png) 
 
 ### Power analysis (to figure out appropriate sample size)
 
